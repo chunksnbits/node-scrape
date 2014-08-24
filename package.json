@@ -1,0 +1,26 @@
+{
+  "name": "node-scrape",
+  "description": "A configurable node package for scraping web page content.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Daniel Eissing",
+    "email": "daniel.eissing@gmx.net"
+  },
+  "directories": {
+    "tasks": "./"
+  },
+  "main": "./index",
+  "repository": {
+    "type": "git",
+    "url": "tbd"
+  },
+  "dependencies": {
+    "cheerio": "^0.17.0",
+    "easyxml": "0.0.5",
+    "fs.extra": "^1.2.1",
+    "json-2-csv": "^0.1.4",
+    "lodash": "^2.4.1",
+    "q": "^1.0.1",
+    "request": "^2.40.0"
+  }
+}
