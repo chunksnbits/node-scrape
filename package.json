@@ -12,7 +12,7 @@
   "main": "./index",
   "repository": {
     "type": "git",
-    "url": "tbd"
+    "url": "https://github.com/chunksnbits/node-scrape.git"
   },
   "dependencies": {
     "cheerio": "^0.17.0",
