@@ -4,7 +4,6 @@ var _ = require('lodash');
 var fs = require('fs.extra');
 var q = require('q');
 
-
 /*********************************************************
  * @name Scraper
  *
@@ -72,11 +71,12 @@ function Scraper($, config) {
       var $element = $(this);
 
       var data = Scraper.extract($element, element.attr);
+
+      data = Scraper.trim(data);
       data = Scraper.filter(data, element.filter);
-      data = Scraper.process(data, element.process);
       data = Scraper.format(data, element.format);
 
-      if (data !== undefined && data !== null) {
+      if (data !== undefined) {
 
         // Mainly the case if no group
         // has been specified.
@@ -97,27 +97,114 @@ function Scraper($, config) {
 // Main execution function
 Scraper.scrape = function(src, config) {
 
-  var deferred = q.defer();
+  var urls = Scraper.collectUrls(src, config.params);
 
-  request({
-    url: src
-  }, function(error, response, body) {
+  var promises = [];
+  var result = [];
 
-    var $ = cheerio.load(body);
+  options = _.extend({
+    method: 'GET'
+  }, config.options);
 
-    var scraper = new Scraper($, config);
 
-    _.each(config.collections, _.bind(scraper.parse, scraper));
+  _.each(urls, function(url) {
+    var deferred = q.defer();
 
-    deferred.resolve(scraper.scraped);
+    var requestParameters = url.requestParameters;
+    url = _.isObject(url) ? url.url : url;
+
+    options.uri = url;
+
+    request(options, function(error, response, body) {
+
+      var $ = cheerio.load(body);
+
+      var scraper = new Scraper($, config);
+
+      _.each(config.collections, _.bind(scraper.parse, scraper));
+
+      var scraped = {
+        url: url,
+        collections: scraper.scraped
+      };
+
+      if (requestParameters) {
+        scraped.requestParameters = requestParameters;
+      }
+
+      result.push(scraped);
+
+      deferred.resolve();
+    });
+
+    promises.push(deferred.promise);
   });
 
-  return deferred.promise;
+  return q.all(promises).then(function() {
+    return result;
+  });
+};
+
+Scraper.collectUrls = function(src, params) {
+
+  var urls = _.isArray(src) ? src : [src];
+
+  if (!params) {
+    return urls;
+  }
+
+  return Scraper.permutateUrls(urls, params);
+};
+
+Scraper.permutateUrls = function(urls, options) {
+
+  var extracted = Scraper.extractParams(options);
+
+  var requestOptions = extracted.values;
+  var requestKeys = extracted.keys;
+
+  var permutations = Scraper.permutations(requestOptions);
+
+  var permutatedUrls = [];
+
+  _.each(urls, function(url) {
+    _.each(permutations, function(permutation) {
+      var permutationOptions = {
+        url: _.clone(url),
+        requestParameters: {}
+      };
+
+      _.each(requestKeys, function(key, index) {
+        var value = permutation[index];
+
+        permutationOptions.url = permutationOptions.url.replace(':' + key, value);
+        permutationOptions.requestParameters[key] = value;
+      });
+
+      permutatedUrls.push(permutationOptions);
+    });
+  });
+  return permutatedUrls;
+};
+
+Scraper.extractParams = function(options) {
+  var keys = [];
+  var values = [];
+
+  _.each(options, function(value, key) {
+    keys.push(key);
+    values.push(_.isArray(value) ? value : [value]);
+  });
+
+  return {
+    keys: keys,
+    values: values
+  };
 };
 
 // Extracts data from a note.
 // Uses the given attr to determine which data
-// to extrat (default 'text').
+// to extract (default 'text').
 Scraper.extract = function($element, attr) {
 
   // text extraction is default, if nothing
@@ -154,7 +241,7 @@ Scraper.filter = function(data, filter) {
 
   // No result found or no filter
   // provided.
-  if (!data || !filter) {
+  if (!data || !filter || !_.isString(data)) {
     return data;
   }
 
@@ -210,20 +297,15 @@ Scraper.makeCollection = function(collectionData) {
   return collection;
 };
 
-// Allow further processing on a value
-// by specifying a processor function.
-Scraper.process = function(data, process) {
-  if (!data || !process) {
-    return data;
-  }
-
-  return process(data);
+// Do some basic string processing.
+Scraper.trim = function(data) {
+  return data.replace(/[\r\n\t]/g, '').trim();
 };
 
 // Format to a certain filetype.
 // Currently supported: 'number', 'data'
 Scraper.format = function(data, format) {
-  if (!data || !format) {
+  if (!data || !format || !_.isString(data)) {
     return data;
   }
 
@@ -245,6 +327,38 @@ Scraper.format = function(data, format) {
         return data;
       }
   }
+};
+
+
+// Based on a solution for the cartesian product by
+// 'Bergi', http://stackoverflow.com/a/15310051
+//
+// Calculates all possible permutations from
+// n-given arrays.
+// e.g.,
+//
+//   Scrape.permutations([1,2], [3], [5,6]) -->
+//      [[1,3,4],[1,3,6],[2,3,5],[2,3,6]]
+//
+Scraper.permutations = function(args) {
+  var result = [];
+  var max = args.length - 1;
+
+  function recurse(array, argsIndex) {
+    var index = args[argsIndex].length;
+
+    while (--index > -1) {
+      var clone = array.slice(0); // clone arr
+      clone.push(args[argsIndex][index]);
+      if (argsIndex < max) {
+        recurse(clone, argsIndex + 1);
+      } else {
+        result.push(clone);
+      }
+    }
+  }
+  recurse([], 0);
+  return result;
 };
 
 module.exports = Scraper;
