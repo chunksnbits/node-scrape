@@ -1,12 +1,6 @@
-node-scrape
-===========
+# hode-scrape v.0.1.1
 
 A configurable node package for scraping web page content.
-
-# grunt-scrape v.0.1.0
-
-A grunt wrapper around [node-scrape plugin](https://github.com/chunksnbits/node-scrape).
-Allows to scrape webpages and extract data collections.
 
 ## Getting Started
 You may install this plugin with this command:
