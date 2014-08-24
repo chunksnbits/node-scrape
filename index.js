@@ -4,13 +4,28 @@ var _ = require('lodash');
 var fs = require('fs.extra');
 var q = require('q');
 
+
+/*********************************************************
+ * @name Scraper
+ *
+ * @interface
+ *  Exporter.scrape(src {string}, config {object})
+ *   - Scrapes a given source website and parses data
+ *     based on collections specified in the config.
+ *   - Returns an object holding the data found.
+ *
+ *********************************************************/
 function Scraper($, config) {
 
   var self = this;
 
   this.config = config;
+
+  // Will hold the scraped data
+  // and build up recursively during the process.
   this.scraped = {};
 
+  // Process the current collection
   this.parse = function(collection) {
     self.collection = collection;
 
@@ -27,6 +42,7 @@ function Scraper($, config) {
     }
   };
 
+  // Parse data for the given group
   this.parseGroup = function() {
     self.groupData = {};
 
@@ -38,6 +54,9 @@ function Scraper($, config) {
     return null;
   };
 
+  // Parse a single node by extract data
+  // and then applying filter, processors
+  // and format.
   this.parseElement = function(element, key) {
 
     var $this = $(this);
@@ -46,6 +65,9 @@ function Scraper($, config) {
 
     var hasMultipleResults = $elements.length > 1;
 
+    // Will be called for each element
+    // that matches the query within the given
+    // group.
     var parse = function() {
       var $element = $(this);
 
@@ -55,6 +77,9 @@ function Scraper($, config) {
       data = Scraper.format(data, element.format);
 
       if (data !== undefined && data !== null) {
+
+        // Mainly the case if no group
+        // has been specified.
         if (hasMultipleResults) {
           self.groupData[key] = self.groupData[key] || [];
           self.groupData[key].push(data);
@@ -68,13 +93,14 @@ function Scraper($, config) {
   };
 }
 
-Scraper.scrape = function(config) {
+
+// Main execution function
+Scraper.scrape = function(src, config) {
 
   var deferred = q.defer();
-  var exporter = new Exporter();
 
   request({
-    url: config.src
+    url: src
   }, function(error, response, body) {
 
     var $ = cheerio.load(body);
@@ -83,14 +109,15 @@ Scraper.scrape = function(config) {
 
     _.each(config.collections, _.bind(scraper.parse, scraper));
 
-    exporter.export(config.dest, scraper.scraped);
-
     deferred.resolve(scraper.scraped);
   });
 
   return deferred.promise;
 };
 
+// Extracts data from a note.
+// Uses the given attr to determine which data
+// to extrat (default 'text').
 Scraper.extract = function($element, attr) {
 
   // text extraction is default, if nothing
@@ -121,6 +148,8 @@ Scraper.extract = function($element, attr) {
   }
 };
 
+// Filter the result based on a given
+// regex or function.
 Scraper.filter = function(data, filter) {
 
   // No result found or no filter
@@ -154,12 +183,18 @@ Scraper.filter = function(data, filter) {
   return null;
 };
 
+// Creates a collection from all collected result
+// sets if no group selector was provided.
+// Requires all result sets to be of equal length
+// to allow a valid mapping.
 Scraper.makeCollection = function(collectionData) {
 
   var collection = [];
   var length;
 
   _.each(collectionData, function(values, key) {
+
+    // Set initial length
     length = length || values.length;
 
     if (length !== values.length) {
@@ -175,6 +210,8 @@ Scraper.makeCollection = function(collectionData) {
   return collection;
 };
 
+// Allow further processing on a value
+// by specifying a processor function.
 Scraper.process = function(data, process) {
   if (!data || !process) {
     return data;
@@ -183,6 +220,8 @@ Scraper.process = function(data, process) {
   return process(data);
 };
 
+// Format to a certain filetype.
+// Currently supported: 'number', 'data'
 Scraper.format = function(data, format) {
   if (!data || !format) {
     return data;
@@ -195,7 +234,7 @@ Scraper.format = function(data, format) {
   switch (format) {
     case 'number':
       {
-        return Number(data.replace(/[^\d.]/, ''));
+        return Number(data.replace(/[^\d.]/g, ''));
       }
     case 'date':
       {
@@ -205,129 +244,6 @@ Scraper.format = function(data, format) {
       {
         return data;
       }
-  }
-};
-
-/*********************************************************
- * @name Exporter
- *
- * @type Class
- *
- * @options
- *   - cwd: The current working directory to base the
- *          filepath on
- *
- * @interface
- *  Exporter.export(filepath {string}, data {object})
- *   - Writes a javascript (json) object to the
- *     specified filepath.
- *
- * @description
- *  Helper class for writing json data to the
- *  file system in various formats.
- *
- *  Currently supported:
- *    - JSON
- *    - CSV
- *    - XML
- *
- *********************************************************/
-function Exporter() {
-  this.cwd = process.cwd();
-
-  this.export = function(filepath, data) {
-
-    filepath = getOrCreateWorkingFilepath(filepath, this.cwd);
-
-    var ending = parseFiletype(filepath);
-    var strategy = Exporter.strategies[ending];
-
-    if (!strategy) {
-      throw new Error('Could not export data. The filetype "' + ending + '" is not supported. Please specify an ending of: "' + _.keys(Exporter.strategies).join('", "') + '"');
-    }
-
-    return strategy.export(filepath, data);
-  };
-
-  var getOrCreateWorkingFilepath = function(filepath, cwd) {
-    var outputFile = cwd + '/' + filepath;
-
-    var outputPath = outputFile.replace(/\/([^\/]+)$/, '');
-
-    if (!fs.existsSync(outputPath)) {
-      fs.mkdirRecursiveSync(outputPath);
-    }
-
-    return outputFile;
-  };
-
-  var parseFiletype = function(filepath) {
-    var matches = filepath.match(/\.([^.]*)$/);
-    if (matches.length !== 2) {
-      throw new Error('Could not determine export type. Please specify a filetype ending on the "dest" attribute.');
-    }
-
-    return matches[1];
-  };
-}
-
-/*********************************************************
- * @name Exporter.strategies
- *
- * @type Class
- *
- * @interface
- *  Exporter.strategies[strategie].export(
- *                filepath {string}, data {object})
- *
- *   - Writes a javascript (json) object to the
- *     specified filepath using the specified stragety
- *
- * @description
- *  Helper class for writing json data to the
- *  file system in various formats.
- *
- *  Currently supported:
- *    - JSON
- *    - CSV
- *    - XML
- *
- *********************************************************/
-Exporter.strategies = {
-  csv: {
-    export: function(filepath, data) {
-      var converter = require('json-2-csv');
-
-      var key = _.keys(data)[0];
-
-      converter.json2csv(data[key], function(error, csv) {
-        if (error) {
-          throw error;
-        }
-        fs.writeFileSync(filepath, csv);
-      });
-    }
-  },
-  json: {
-    export: function(filepath, data) {
-      fs.writeFileSync(filepath, JSON.stringify(data));
-    }
-  },
-  xml: {
-    export: function(filepath, data) {
-      var converter = require('easyxml');
-
-      converter.configure({
-        singularizeChildren: true,
-        rootElement: 'data',
-        indent: 2,
-        manifest: true
-      });
-
-      var xml = converter.render(data);
-
-      fs.writeFileSync(filepath, xml);
-    }
   }
 };
 
