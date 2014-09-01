@@ -1,7 +1,7 @@
 {
   "name": "node-scrape",
   "description": "A configurable node package for scraping web page content.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "Daniel Eissing",
     "email": "daniel.eissing@gmx.net"
