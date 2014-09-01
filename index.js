@@ -1,14 +1,17 @@
-var cheerio = require('cheerio');
-var request = require('request');
+var jsdom = require('jsdom');
+var $ = require('jquery');
 var _ = require('lodash');
-var fs = require('fs.extra');
 var q = require('q');
 
 /*********************************************************
  * @name Scraper
  *
  * @interface
- *  Exporter.scrape(src {string}, config {object})
+ * Exporter.scrape(src {
+   string
+ }, config {
+   object
+ })
  *   - Scrapes a given source website and parses data
  *     based on collections specified in the config.
  *   - Returns an object holding the data found.
@@ -102,9 +105,7 @@ Scraper.scrape = function(src, config) {
   var promises = [];
   var result = [];
 
-  options = _.extend({
-    method: 'GET'
-  }, config.options);
+  options = _.extend({}, config.options);
 
 
   _.each(urls, function(url) {
@@ -113,29 +114,31 @@ Scraper.scrape = function(src, config) {
     var requestParameters = url.requestParameters;
     url = _.isObject(url) ? url.url : url;
 
-    options.uri = url;
+    options.url = url;
 
-    request(options, function(error, response, body) {
+    jsdom.env(_.extend(options, {
+      loaded: function(error, window) {
 
-      var $ = cheerio.load(body);
+        var $window = $(window);
 
-      var scraper = new Scraper($, config);
+        var scraper = new Scraper($window, config);
 
-      _.each(config.collections, _.bind(scraper.parse, scraper));
+        _.each(config.collections, _.bind(scraper.parse, scraper));
 
-      var scraped = {
-        url: url,
-        collections: scraper.scraped
-      };
+        var scraped = {
+          url: url,
+          collections: scraper.scraped
+        };
 
-      if (requestParameters) {
-        scraped.requestParameters = requestParameters;
+        if (requestParameters) {
+          scraped.requestParameters = requestParameters;
+        }
+
+        result.push(scraped);
+
+        deferred.resolve();
       }
-
-      result.push(scraped);
-
-      deferred.resolve();
-    });
+    }));
 
     promises.push(deferred.promise);
   });
