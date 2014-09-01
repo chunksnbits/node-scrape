@@ -1,4 +1,4 @@
-# hode-scrape v.0.1.1
+# node-scrape v.0.1.1
 
 A configurable node package for scraping web page content.
 
@@ -42,27 +42,25 @@ Scraper.scrape('http://example.com/:id', config)
 
 # Arguments
 
-## Source (src {string})
+## Source (src)
 
 `src {string|array(string)}`
 
 One or more urls of websites to scrape.
 
-## Options
+## Options (options)
 
 Specifies options and rules for scraping the targeted website(s)
 
-### Collections (collections {array(object)})
+### Collections (collections)
 
-One or more collections to extract from the website. Each collection will produce an object containing the fields specified under the `elements` option.
+One or more collections to extract from the website. Each collection will produce an object containing the fields specified under the `elements` option. Collections must be specified using the following settings:
 
-Settings:
-
-#### `name {string}`
+#### name
 
 The name of the collection
 
-#### `elements {array(object)}`
+#### elements
 
 Specifies the fields of data to extract. Options are:
 
@@ -91,7 +89,7 @@ Presets are `number` (formats the data using `Number(data)`) or `date` (will cre
 
 Also allows a callback function for custom filtering. Return `null` to exclude the element from being added to the resulting dataset.
 
-#### `group {string}`
+#### group (optional)
 
 A [jQuery selector](http://api.jquery.com/category/selectors/) that identifies a grouped block of information on the page. All queries of a colletion are run against this group.
 
