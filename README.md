@@ -1,4 +1,4 @@
-# node-scrape v.0.1.1
+# node-scrape v.0.1.2
 
 A configurable node package for scraping web page content.
 
