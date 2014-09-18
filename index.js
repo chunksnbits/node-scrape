@@ -1,7 +1,12 @@
+/* jshint node:true */
+
+'use strict';
+
 var jsdom = require('jsdom');
 var $ = require('jquery');
 var _ = require('lodash');
 var q = require('q');
+var flatnest = require("flatnest")
 
 /*********************************************************
  * @name Scraper
@@ -51,6 +56,15 @@ function Scraper($, config) {
     _.each(self.collection.elements, _.bind(self.parseElement, this));
 
     if (!_.isEmpty(self.groupData)) {
+
+      // For group queries resolve tree structure
+      // (e.g., 'a.b.c' --> { a: { b: { c: 'value' }}})
+      // at this point for grouped collections.
+      // For non-grouped collections, resolve nesting
+      // in makeCollection step.
+      if (self.collection.group) {
+        return flatnest.nest(self.groupData);
+      }
       return self.groupData;
     }
     return null;
@@ -105,7 +119,7 @@ Scraper.scrape = function(src, config) {
   var promises = [];
   var result = [];
 
-  options = _.extend({}, config.options);
+  var options = _.extend({}, config.options);
 
 
   _.each(urls, function(url) {
@@ -295,6 +309,12 @@ Scraper.makeCollection = function(collectionData) {
       collection[index] = collection[index] || {};
       collection[index][key] = value;
     });
+  });
+
+  // Nest nested keys (e.g., 'a.b.c' --> { a: { b: { c: 'value' }}})
+  // after collection making process has finished.
+  _.each(collection, function(value, index) {
+    collection[index] = flatnest.next(value);
   });
 
   return collection;

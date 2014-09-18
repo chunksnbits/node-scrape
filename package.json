@@ -15,6 +15,7 @@
     "url": "https://github.com/chunksnbits/node-scrape.git"
   },
   "dependencies": {
+    "flatnest": "^0.2.2",
     "fs.extra": "^1.2.1",
     "jquery": "^2.1.1",
     "jsdom": "^1.0.0-pre.5",
