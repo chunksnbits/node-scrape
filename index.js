@@ -22,7 +22,7 @@ var flatnest = require("flatnest")
  *   - Returns an object holding the data found.
  *
  *********************************************************/
-function Scraper($, config) {
+function Scraper($, config, requestParameters) {
 
   var self = this;
 
@@ -31,6 +31,8 @@ function Scraper($, config) {
   // Will hold the scraped data
   // and build up recursively during the process.
   this.scraped = {};
+
+  this.requestParameters = requestParameters;
 
   // Process the current collection
   this.parse = function(collection) {
@@ -41,11 +43,19 @@ function Scraper($, config) {
     var collectionData = _.toArray($group.map(self.parseGroup));
 
     if (collectionData.length > 0) {
-      if (collection.group) {
-        self.scraped[collection.name] = collectionData;
-      } else {
-        self.scraped[collection.name] = Scraper.makeCollection(collectionData[0]);
+      if (!collection.group) {
+        collectionData = Scraper.makeCollection(collectionData[0]);
       }
+
+      // Apply static value processing on each value of the
+      // extracted collection.
+      if (collection.each) {
+        collectionData = Scraper.each(collection, collectionData, this.requestParameters);
+      }
+
+      console.log(_.first(collectionData));
+
+      self.scraped[collection.name] = collectionData;
     }
   };
 
@@ -74,11 +84,8 @@ function Scraper($, config) {
   // and then applying filter, processors
   // and format.
   this.parseElement = function(element, key) {
-
     var $this = $(this);
-
     var $elements = $this.find(element.query);
-
     var hasMultipleResults = $elements.length > 1;
 
     // Will be called for each element
@@ -135,7 +142,7 @@ Scraper.scrape = function(src, config) {
 
         var $window = $(window);
 
-        var scraper = new Scraper($window, config);
+        var scraper = new Scraper($window, config, requestParameters);
 
         _.each(config.collections, _.bind(scraper.parse, scraper));
 
@@ -217,6 +224,16 @@ Scraper.extractParams = function(options) {
     keys: keys,
     values: values
   };
+};
+
+Scraper.each = function(collection, collectionData, requestParameters) {
+  _.each(collectionData, function (entry, index) {
+    _.each(collection.each, function (valueOrFn, key) {
+      collectionData[index][key] = _.isFunction(valueOrFn) ? valueOrFn(entry, collection, requestParameters) : valueOrFn;
+    });
+  });
+
+  return collectionData;
 };
 
 // Extracts data from a note.
