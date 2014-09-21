@@ -97,6 +97,22 @@ Should be used to differentiate individual items of information, e.g., a table r
 
 If no group is specified items will be grouped by index (requires the same number of results for each element of the collections).
 
+#### each (optional)
+
+An object allowing to add static values for each element of the extracted collection.
+
+```
+each: {
+  pi: Math.PI,
+  params: function (entity, collection, requestParameters) {
+    return requestParameters;
+  }
+  ...
+}
+```
+
+Will be called with the current element, the whole collection and the request parameters permutation used for scraping this collection.
+
 ### Source parameters (params)
 
 `params {object} (optional)`
