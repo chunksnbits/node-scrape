@@ -6,7 +6,7 @@ A configurable node package for scraping web page content.
 You may install this plugin with this command:
 
 ```shell
-npm install grunt-scrape --save-dev
+npm install node-scrape --save
 ```
 ## Usage
 
